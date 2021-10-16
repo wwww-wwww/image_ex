@@ -1,0 +1,11 @@
+BasedOnStyle: Google
+
+SortIncludes: false
+IndentPPDirectives: AfterHash
+StatementMacros: [MARKUPMAP, ASSERT_TRUE, ASSERT_FALSE, TEST, CHECK]
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None

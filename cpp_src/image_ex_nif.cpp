@@ -3,6 +3,8 @@
 #define MSF_GIF_IMPL
 #include "msf_gif.h"
 
+#include "lodepng.h"
+
 struct resource_t {
   MsfGifState gif_state;
   int width;
@@ -92,7 +94,43 @@ ERL_NIF_TERM gif_end(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   return OK(env, data);
 }
 
+ERL_NIF_TERM png_reencode_nif(ErlNifEnv* env, int argc,
+                              const ERL_NIF_TERM argv[]) {
+  ErlNifBinary blob;
+  if (enif_inspect_binary(env, argv[0], &blob) == 0) {
+    return ERROR(env, "Bad argument");
+  }
+
+  std::vector<unsigned char> buffer;
+  buffer.insert(buffer.end(), blob.data, blob.data + blob.size);
+
+  std::vector<unsigned char> image;
+  unsigned w, h;
+  unsigned error = lodepng::decode(image, w, h, buffer);
+  buffer.clear();
+
+  lodepng::State state;
+  state.encoder.filter_palette_zero = 0;
+  state.encoder.add_id = false;
+  state.encoder.text_compression = 1;
+  state.encoder.zlibsettings.nicematch = 258;
+  state.encoder.zlibsettings.lazymatching = 1;
+  state.encoder.zlibsettings.windowsize = 32768;
+  state.encoder.zlibsettings.minmatch = 3;
+
+  if (lodepng::encode(buffer, image, w, h, state)) {
+    return ERROR(env, "encoding error");
+  }
+
+  ERL_NIF_TERM data;
+  unsigned char* raw = enif_make_new_binary(env, buffer.size(), &data);
+  memcpy(raw, buffer.data(), buffer.size());
+
+  return OK(env, data);
+}
+
 static ErlNifFunc funcs[] = {
+    {"png_reencode", 1, png_reencode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"create_gif", 3, create_gif_nif, 0},
     {"gif_add_frame", 3, gif_add_frame_nif, 0},
     {"gif_end", 1, gif_end, 0},
