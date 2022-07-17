@@ -7,7 +7,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY $ENV{MIX_COMPILE_PATH}/../priv)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY $ENV{MIX_COMPILE_PATH}/../priv)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $ENV{MIX_COMPILE_PATH}/../priv)
 
-add_library(image_ex_nif SHARED cpp_src/image_ex_nif.cpp cpp_src/lodepng.cpp)
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
+if(COMPILER_SUPPORTS_MARCH_NATIVE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mno-avx2")
+endif()
+
+add_definitions(-DFPNGE_USE_PEXT=0)
+
+add_library(image_ex_nif SHARED cpp_src/image_ex_nif.cpp cpp_src/lodepng.cpp cpp_src/fpnge.cc)
 #target_link_libraries(test_ex_nif)
 target_include_directories(image_ex_nif PRIVATE
   $ENV{ERTS_INCLUDE_DIR}

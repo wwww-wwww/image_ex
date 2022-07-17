@@ -190,7 +190,18 @@ defmodule ImageEx.Png do
     compressed
   end
 
-  def reencode(data) do
-    ImageEx.Base.png_reencode(data)
-  end
+  def decode(data), do: ImageEx.Base.png_decode(data)
+  def reencode(data), do: ImageEx.Base.png_reencode(data)
+
+  def lodepng_encode(%{image: image, xsize: width, ysize: height}),
+    do: ImageEx.Base.png_encode(image, width, height)
+
+  def fast_encode(%{
+        image: image,
+        xsize: width,
+        ysize: height,
+        bits_per_sample: bit_depth,
+        num_channels: channels
+      }),
+      do: ImageEx.Base.png_fast_encode(image, width, height, bit_depth, channels)
 end

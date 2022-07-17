@@ -94,6 +94,40 @@ ERL_NIF_TERM gif_end(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   return OK(env, data);
 }
 
+std::vector<unsigned char> decode_png(ErlNifBinary blob, unsigned& width,
+                                      unsigned& height) {
+  std::vector<unsigned char> buffer;
+  buffer.insert(buffer.end(), blob.data, blob.data + blob.size);
+
+  std::vector<unsigned char> image;
+  unsigned error = lodepng::decode(image, width, height, buffer);
+  return image;
+}
+
+ERL_NIF_TERM png_decode_nif(ErlNifEnv* env, int argc,
+                            const ERL_NIF_TERM argv[]) {
+  ErlNifBinary blob;
+  if (enif_inspect_binary(env, argv[0], &blob) == 0) {
+    return ERROR(env, "Bad argument");
+  }
+
+  unsigned width, height;
+  std::vector<unsigned char> image = decode_png(blob, width, height);
+
+  ERL_NIF_TERM data;
+  unsigned char* raw = enif_make_new_binary(env, image.size(), &data);
+  memcpy(raw, image.data(), image.size());
+
+  ERL_NIF_TERM map = enif_make_new_map(env);
+  MAP(env, map, "image", data);
+  MAP(env, map, "xsize", enif_make_uint(env, width));
+  MAP(env, map, "ysize", enif_make_uint(env, height));
+  MAP(env, map, "bits_per_sample", enif_make_uint(env, 8));
+  MAP(env, map, "num_channels", enif_make_uint(env, 4));
+
+  return OK(env, map);
+}
+
 ERL_NIF_TERM png_reencode_nif(ErlNifEnv* env, int argc,
                               const ERL_NIF_TERM argv[]) {
   ErlNifBinary blob;
@@ -101,13 +135,8 @@ ERL_NIF_TERM png_reencode_nif(ErlNifEnv* env, int argc,
     return ERROR(env, "Bad argument");
   }
 
-  std::vector<unsigned char> buffer;
-  buffer.insert(buffer.end(), blob.data, blob.data + blob.size);
-
-  std::vector<unsigned char> image;
-  unsigned w, h;
-  unsigned error = lodepng::decode(image, w, h, buffer);
-  buffer.clear();
+  unsigned width, height;
+  std::vector<unsigned char> image = decode_png(blob, width, height);
 
   lodepng::State state;
   state.encoder.filter_palette_zero = 0;
@@ -118,7 +147,8 @@ ERL_NIF_TERM png_reencode_nif(ErlNifEnv* env, int argc,
   state.encoder.zlibsettings.windowsize = 32768;
   state.encoder.zlibsettings.minmatch = 3;
 
-  if (lodepng::encode(buffer, image, w, h, state)) {
+  std::vector<unsigned char> buffer;
+  if (lodepng::encode(buffer, image, width, height, state)) {
     return ERROR(env, "encoding error");
   }
 
@@ -129,7 +159,96 @@ ERL_NIF_TERM png_reencode_nif(ErlNifEnv* env, int argc,
   return OK(env, data);
 }
 
+ERL_NIF_TERM png_encode_nif(ErlNifEnv* env, int argc,
+                            const ERL_NIF_TERM argv[]) {
+  ErlNifBinary blob;
+  if (enif_inspect_binary(env, argv[0], &blob) == 0) {
+    return ERROR(env, "Bad argument");
+  }
+
+  std::vector<unsigned char> in_buffer;
+  in_buffer.insert(in_buffer.end(), blob.data, blob.data + blob.size);
+
+  int width;
+  if (enif_get_int(env, argv[1], &width) == 0) {
+    return ERROR(env, "Invalid width");
+  }
+
+  int height;
+  if (enif_get_int(env, argv[2], &height) == 0) {
+    return ERROR(env, "Invalid height");
+  }
+
+  std::vector<unsigned char> out_buffer;
+
+  lodepng::State state;
+  state.encoder.filter_palette_zero = 0;
+  state.encoder.add_id = false;
+  state.encoder.text_compression = 1;
+  state.encoder.zlibsettings.nicematch = 258;
+  state.encoder.zlibsettings.lazymatching = 1;
+  state.encoder.zlibsettings.windowsize = 32768;
+  state.encoder.zlibsettings.minmatch = 3;
+
+  if (lodepng::encode(out_buffer, in_buffer.data(), width, height, state)) {
+    return ERROR(env, "encoding error");
+  }
+
+  ERL_NIF_TERM data;
+  unsigned char* raw = enif_make_new_binary(env, out_buffer.size(), &data);
+  memcpy(raw, out_buffer.data(), out_buffer.size());
+
+  return OK(env, data);
+}
+
+ERL_NIF_TERM png_fast_encode_nif(ErlNifEnv* env, int argc,
+                                 const ERL_NIF_TERM argv[]) {
+  ErlNifBinary blob;
+  if (enif_inspect_binary(env, argv[0], &blob) == 0) {
+    return ERROR(env, "Bad argument");
+  }
+
+  std::vector<unsigned char> in_buffer;
+  in_buffer.insert(in_buffer.end(), blob.data, blob.data + blob.size);
+
+  int width;
+  if (enif_get_int(env, argv[1], &width) == 0) {
+    return ERROR(env, "Invalid width");
+  }
+
+  int height;
+  if (enif_get_int(env, argv[2], &height) == 0) {
+    return ERROR(env, "Invalid height");
+  }
+
+  int bit_depth;
+  if (enif_get_int(env, argv[3], &bit_depth) == 0) {
+    return ERROR(env, "Invalid bit_depth");
+  }
+
+  int channels;
+  if (enif_get_int(env, argv[4], &channels) == 0) {
+    return ERROR(env, "Invalid num_channels");
+  }
+
+  std::vector<unsigned char> encoded;
+  encoded.resize(FPNGEOutputAllocSize(bit_depth / 8, channels, width, height));
+
+  size_t encoded_size =
+      FPNGEEncode(bit_depth / 8, channels, in_buffer.data(), width,
+                  width * channels, height, encoded.data());
+
+  ERL_NIF_TERM data;
+  unsigned char* raw = enif_make_new_binary(env, encoded_size, &data);
+  memcpy(raw, encoded.data(), encoded_size);
+
+  return OK(env, data);
+}
+
 static ErlNifFunc funcs[] = {
+    {"png_decode", 1, png_decode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"png_encode", 3, png_encode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"png_fast_encode", 5, png_fast_encode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"png_reencode", 1, png_reencode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"create_gif", 3, create_gif_nif, 0},
     {"gif_add_frame", 3, gif_add_frame_nif, 0},
