@@ -45,7 +45,7 @@ defmodule ImageEx.Base do
   def png_decode(_data), do: fail()
   def png_reencode(_data), do: fail()
 
-  def png_encode(_data, _width, _height), do: fail()
+  def png_encode(_data, _width, _height, _channels), do: fail()
   def png_fast_encode(_data, _width, _height, _bit_depth, _channels), do: fail()
 
   defp fail, do: raise("native function error")

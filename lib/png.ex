@@ -193,8 +193,8 @@ defmodule ImageEx.Png do
   def decode(data), do: ImageEx.Base.png_decode(data)
   def reencode(data), do: ImageEx.Base.png_reencode(data)
 
-  def lodepng_encode(%{image: image, xsize: width, ysize: height}),
-    do: ImageEx.Base.png_encode(image, width, height)
+  def lodepng_encode(%{image: image, xsize: width, ysize: height, num_channels: channels}),
+    do: ImageEx.Base.png_encode(image, width, height, channels)
 
   def fast_encode(%{
         image: image,

@@ -179,18 +179,33 @@ ERL_NIF_TERM png_encode_nif(ErlNifEnv* env, int argc,
     return ERROR(env, "Invalid height");
   }
 
+  int channels;
+  if (enif_get_int(env, argv[3], &channels) == 0) {
+    return ERROR(env, "Invalid num_channels");
+  }
+
   std::vector<unsigned char> out_buffer;
 
   lodepng::State state;
   state.encoder.filter_palette_zero = 0;
   state.encoder.add_id = false;
   state.encoder.text_compression = 1;
-  state.encoder.zlibsettings.nicematch = 258;
+  state.encoder.zlibsettings.nicematch = 128;
   state.encoder.zlibsettings.lazymatching = 1;
-  state.encoder.zlibsettings.windowsize = 32768;
-  state.encoder.zlibsettings.minmatch = 3;
+  state.encoder.zlibsettings.windowsize = 128;
+  state.encoder.zlibsettings.minmatch = 0;
 
-  if (lodepng::encode(out_buffer, in_buffer.data(), width, height, state)) {
+  if (channels == 1) {
+    state.info_raw.colortype = LCT_GREY;
+  } else if (channels == 2) {
+    state.info_raw.colortype = LCT_GREY_ALPHA;
+  } else if (channels == 3) {
+    state.info_raw.colortype = LCT_RGB;
+  } else {
+    state.info_raw.colortype = LCT_RGBA;
+  }
+
+  if (lodepng::encode(out_buffer, in_buffer, width, height, state)) {
     return ERROR(env, "encoding error");
   }
 
@@ -247,7 +262,7 @@ ERL_NIF_TERM png_fast_encode_nif(ErlNifEnv* env, int argc,
 
 static ErlNifFunc funcs[] = {
     {"png_decode", 1, png_decode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"png_encode", 3, png_encode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"png_encode", 4, png_encode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"png_fast_encode", 5, png_fast_encode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"png_reencode", 1, png_reencode_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"create_gif", 3, create_gif_nif, 0},
