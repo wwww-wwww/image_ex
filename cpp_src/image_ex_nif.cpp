@@ -249,9 +249,12 @@ ERL_NIF_TERM png_fast_encode_nif(ErlNifEnv* env, int argc,
   std::vector<unsigned char> encoded;
   encoded.resize(FPNGEOutputAllocSize(bit_depth / 8, channels, width, height));
 
+  struct FPNGEOptions options;
+  FPNGEFillOptions(&options, FPNGE_COMPRESS_LEVEL_BEST, FPNGE_CICP_NONE);
+
   size_t encoded_size =
       FPNGEEncode(bit_depth / 8, channels, in_buffer.data(), width,
-                  width * channels, height, encoded.data());
+                  width * channels, height, encoded.data(), &options);
 
   ERL_NIF_TERM data;
   unsigned char* raw = enif_make_new_binary(env, encoded_size, &data);

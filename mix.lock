@@ -1,3 +1,3 @@
 %{
-  "elixir_cmake": {:git, "https://github.com/wwww-wwww/elixir-cmake.git", "679d497d2a61649a801f9e54eb60cdeb16434fc8", []},
+  "elixir_cmake": {:git, "https://github.com/wwww-wwww/elixir-cmake.git", "dfd3143ef430329f714780723cc8e1a88aec0b7f", []},
 }
