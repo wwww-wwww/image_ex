@@ -2,11 +2,10 @@ defmodule ImageEx.Base do
   @compile {:autoload, false}
   @on_load {:init, 0}
 
-  @priv_paths [
-    :code.priv_dir(:image_ex),
-    '_build/prod/lib/image_ex/priv/',
-    '_build/dev/lib/image_ex/priv/'
-  ]
+  @env Mix.env()
+
+  @priv_path_dev '_build/dev/lib/image_ex/priv/'
+  @priv_path_prod '_build/prod/lib/image_ex/priv/'
 
   @make_default 'libimage_ex_nif'
   @msvc_debug 'Debug/image_ex_nif'
@@ -27,9 +26,16 @@ defmodule ImageEx.Base do
   end
 
   defp load_nif() do
+    priv_paths =
+      if @env == :dev do
+        [:code.priv_dir(:image_ex), @priv_path_dev]
+      else
+        [:code.priv_dir(:image_ex), @priv_path_prod]
+      end
+
     [@make_default, @msvc_release, @msvc_debug]
-    |> Enum.map(fn x -> Enum.map(@priv_paths, fn y -> :filename.join(y, x) end) end)
-    |> Enum.reduce([], fn x, acc -> acc ++ x end)
+    |> Enum.map(fn x -> Enum.map(priv_paths, fn y -> :filename.join(y, x) end) end)
+    |> Enum.reduce([], &(&2 ++ &1))
     |> Enum.reduce_while([], fn x, acc ->
       case :erlang.load_nif(x, 0) do
         :ok -> {:halt, :ok}
